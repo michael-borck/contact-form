@@ -1,0 +1,15 @@
+services:
+  contact:
+    image: ghcr.io/michael-borck/contact-form:${TAG:-latest}
+    build: .
+    env_file: .env
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
