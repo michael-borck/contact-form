@@ -1,6 +1,9 @@
 forms.borck.consulting {
 	encode gzip
-	reverse_proxy 127.0.0.1:8080
+	reverse_proxy contact:8080
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
 	header {
 		Strict-Transport-Security "max-age=31536000;"
 		X-Content-Type-Options "nosniff"

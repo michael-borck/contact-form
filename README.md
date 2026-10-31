@@ -68,24 +68,21 @@ docker compose pull
 docker compose up -d
 ```
 
-If the GHCR image is private:
-
-```bash
-echo "$GHCR_READ_TOKEN" | docker login ghcr.io -u michael-borck --password-stdin
-```
-
-Use a fine-grained token with only `read:packages`.
+The GHCR image is public, so no registry login is needed on the VPS. The image contains no secrets. The `.env` file stays on the VPS.
 
 Rollback: set `TAG` in `.env` to a previous commit SHA, then `docker compose up -d`.
 
 ## Caddy
 
-Add this to the existing Caddy configuration and reload Caddy:
+The service joins the existing `caddy_default` network. Add this to the existing Caddyfile on the VPS at `/home/michael/homelab/caddy/Caddyfile`:
 
 ```caddy
 forms.borck.consulting {
 	encode gzip
-	reverse_proxy 127.0.0.1:8080
+	reverse_proxy contact:8080
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
 	header {
 		Strict-Transport-Security "max-age=31536000;"
 		X-Content-Type-Options "nosniff"
@@ -94,7 +91,17 @@ forms.borck.consulting {
 }
 ```
 
-If Caddy runs in a container, `127.0.0.1:8080` will not reach the host. Put Caddy and this service on the same Docker network and proxy to `contact:8080`.
+Reload Caddy:
+
+```bash
+docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+```
+
+The service uses the external Docker network `caddy_default`. If you run it locally, create that network first:
+
+```bash
+docker network create caddy_default
+```
 
 ## Cloudflare DNS
 
@@ -102,13 +109,13 @@ Create one record:
 
 - Type: `CNAME`
 - Name: `forms`
-- Target: your VPS hostname, for example `vps.borck.dev`
-- Proxy status: DNS only, grey cloud
+- Target: `srv858112.hstgr.cloud`
+- Proxy status: Proxied, orange cloud
 - TTL: Auto
 
-If the VPS has no hostname, use an `A` record for `forms` pointing to the VPS IPv4 address, and an `AAAA` record if it has IPv6. A CNAME is only needed when the VPS already has a hostname.
+Caddy uses the Cloudflare DNS challenge, so the proxied record is fine and the certificate will issue.
 
-Keep the record DNS only so Caddy can complete the Let's Encrypt HTTP challenge. If you want the Cloudflare proxy, use Full (strict) with an origin certificate instead.
+If you prefer not to use a CNAME, use an `A` record for `forms` pointing to `31.97.67.189` and an `AAAA` record pointing to `2a02:4780:59:57c5::1`.
 
 ## Resend and Purelymail
 
